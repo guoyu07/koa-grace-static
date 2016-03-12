@@ -1,6 +1,6 @@
 {
   "name": "koa-grace-static",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "KOA-grace静态文件server中间件",
   "main": "index.js",
   "scripts": {
