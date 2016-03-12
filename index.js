@@ -3,6 +3,10 @@
 const debug = require('debug')('koa-grace:static');
 const mount = require('koa-mount');
 const koastatic = require('koa-static');
+const conditional = require('koa-conditional-get');
+const etag = require('koa-etag');
+
+// TODO: add etag
 
 /**
  * 生成路由控制
