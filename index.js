@@ -1,12 +1,9 @@
 'use strict';
 
+const path = require('path');
 const debug = require('debug')('koa-grace:static');
 const mount = require('koa-mount');
 const koastatic = require('koa-static');
-const conditional = require('koa-conditional-get');
-const etag = require('koa-etag');
-
-// TODO: add etag
 
 /**
  * 生成路由控制
@@ -15,41 +12,46 @@ const etag = require('koa-etag');
  * @param {object} vhost vhost config
  * @return {function}       
  */
-function _static(prefix, dir, vhost){
-  
-  return function *(next){
+function _static(prefix, dir, vhost) {
 
-    let path = this.path;
+  return function*(next) {
 
-    if(path.indexOf(prefix) != 0) return yield* next;
+    let curPath = this.path;
 
-    let pathList = path.split('/'); 
+    if (curPath.indexOf(prefix) != 0) return yield * next;
+
+    let pathList = curPath.split('/');
     let appPath = pathList[2];
-    let staticList = ['js','javascript','css','style','img','image','images','swf'];
-    
-    if(!appPath) return yield* next;
+    let staticList = ['js', 'javascript', 'css', 'style', 'img', 'image', 'images', 'swf'];
 
-    let downstream;
-    if(staticList.indexOf(appPath) > -1 || pathList.length == 3){
-      // http://127.0.0.1:3000/static/test.js
-      // http://127.0.0.1:3000/static/js/test.js
-      
-      if(!vhost) return yield* next;
+    if (!appPath) return yield * next;
+
+    let downstream,curDir;
+    let staticPath = dir + appPath + prefix;
+    if (staticList.indexOf(appPath) > -1 || pathList.length == 3) {
+      // staticList.indexOf(appPath) > -1 : http://127.0.0.1:3000/static/js/test.js
+      // pathList.length : http://127.0.0.1:3000/static/test.js
+
+      if (!vhost) return yield * next;
 
       let appName = vhost[this.hostname];
-      if(!appName) return yield* next;
+      if (!appName) return yield * next;
 
       appPath = '/' + appName;
-      downstream = mount(prefix , koastatic(dir + appPath + prefix));
-    }else{
+      curDir = curPath.replace(prefix,'');
+      downstream = mount(prefix, koastatic(staticPath));
+    } else {
       // http://127.0.0.1:3000/static/blog/test.js
-      
+
       appPath = '/' + appPath;
-      downstream = mount(prefix + appPath , koastatic(dir + appPath + prefix));
+      curDir = curPath.replace(prefix + appPath,'');
+      downstream = mount(prefix + appPath, koastatic(staticPath));
     }
 
-    yield* downstream.call(this, function *(){
-      yield* next;
+    debug(path.resolve(staticPath + curDir));
+
+    yield * downstream.call(this, function*() {
+      yield * next;
     }.call(this));
   }
 };
