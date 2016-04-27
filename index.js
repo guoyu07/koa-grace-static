@@ -8,11 +8,13 @@ const koastatic = require('koa-static');
 /**
  * 生成路由控制
  * @param {String} prefix url prefix
- * @param {String} dir koa-grace app dir
- * @param {object} vhost vhost config
+ * @param {Object} options 配置项
+ * @param {String} options.dir koa-grace app dir
+ * @param {object} options.vhost options.vhost config
+ * @param {object} options.maxage options.maxage config
  * @return {function}       
  */
-function _static(prefix, dir, vhost) {
+function _static(prefix, options) {
 
   return function*(next) {
 
@@ -26,26 +28,28 @@ function _static(prefix, dir, vhost) {
 
     if (!appPath) return yield * next;
 
-    let downstream,curDir;
-    let staticPath = dir + appPath + prefix;
+    let downstream, curDir, staticPath;
     if (staticList.indexOf(appPath) > -1 || pathList.length == 3) {
       // staticList.indexOf(appPath) > -1 : http://127.0.0.1:3000/static/js/test.js
       // pathList.length : http://127.0.0.1:3000/static/test.js
 
-      if (!vhost) return yield * next;
+      if (!options.vhost) return yield * next;
 
-      let appName = vhost[this.hostname];
+      let appName = options.vhost[this.hostname];
       if (!appName) return yield * next;
 
       appPath = '/' + appName;
-      curDir = curPath.replace(prefix,'');
-      downstream = mount(prefix, koastatic(staticPath));
+      staticPath = options.dir + appPath + prefix;
+      downstream = mount(prefix, koastatic(staticPath, { maxage: options.maxage }));
+
+      curDir = curPath.replace(prefix, '');
     } else {
       // http://127.0.0.1:3000/static/blog/test.js
-
+      staticPath = options.dir + appPath + prefix;
       appPath = '/' + appPath;
-      curDir = curPath.replace(prefix + appPath,'');
-      downstream = mount(prefix + appPath, koastatic(staticPath));
+      downstream = mount(prefix + appPath, koastatic(staticPath, { maxage: options.maxage }));
+
+      curDir = curPath.replace(prefix + appPath, '');
     }
 
     debug(path.resolve(staticPath + curDir));
