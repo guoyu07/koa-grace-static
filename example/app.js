@@ -5,9 +5,8 @@ var app = koa();
 
 // http://127.0.0.1:3000/static/blog/test.js
 // http://127.0.0.1:3000/static/test.js
-app.use(_static('/static', {
-	dir: './example/' , 
-	vhost: {'127.0.0.1':'blog'},
+app.use(_static(['/static/**/*','/*/static/**/*'], {
+	dir: './example/', 
 	maxage: 60 * 60 * 1000
 }));
 

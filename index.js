@@ -2,61 +2,87 @@
 
 const path = require('path');
 const debug = require('debug')('koa-grace:static');
-const mount = require('koa-mount');
-const koastatic = require('koa-static');
+const send = require('koa-send');
+const minimatch = require('minimatch');
 
 /**
  * 生成路由控制
  * @param {String} prefix url prefix
  * @param {Object} options 配置项
  * @param {String} options.dir koa-grace app dir
- * @param {object} options.vhost options.vhost config
  * @param {object} options.maxage options.maxage config
  * @return {function}       
  */
 function _static(prefix, options) {
+  let PATH_CACHE = {};
 
   return function*(next) {
 
     let curPath = this.path;
+    let filePath = matchPath(prefix, curPath);
 
-    if (curPath.indexOf(prefix) != 0) return yield * next;
-
-    let pathList = curPath.split('/');
-    let appPath = pathList[2];
-    let staticList = ['js', 'javascript', 'css', 'style', 'img', 'image', 'images', 'swf'];
-
-    if (!appPath) return yield * next;
-
-    let downstream, curDir, staticPath;
-    if (staticList.indexOf(appPath) > -1 || pathList.length == 3) {
-      // staticList.indexOf(appPath) > -1 : http://127.0.0.1:3000/static/js/test.js
-      // pathList.length : http://127.0.0.1:3000/static/test.js
-
-      if (!options.vhost) return yield * next;
-
-      let appName = options.vhost[this.hostname];
-      if (!appName) return yield * next;
-
-      appPath = '/' + appName;
-      staticPath = options.dir + appPath + prefix;
-      downstream = mount(prefix, koastatic(staticPath, { maxage: options.maxage }));
-
-      curDir = curPath.replace(prefix, '');
-    } else {
-      // http://127.0.0.1:3000/static/blog/test.js
-      staticPath = options.dir + appPath + prefix;
-      appPath = '/' + appPath;
-      downstream = mount(prefix + appPath, koastatic(staticPath, { maxage: options.maxage }));
-
-      curDir = curPath.replace(prefix + appPath, '');
+    if (!filePath) {
+      return yield * next;
     }
 
-    debug(path.resolve(staticPath + curDir));
+    debug(path.resolve(options.dir + filePath));
+    yield send(this, filePath, { 
+      root: options.dir, 
+      maxage: options.maxage 
+    });
 
-    yield * downstream.call(this, function*() {
-      yield * next;
-    }.call(this));
+    // 如果发现是静态文件，直接交回执行权限即可，不用执行下一个中间件
+    // return yield * next;
+  }
+
+  /**
+   * 匹配路由并做记录
+   * @param  {Array|String} prefix 匹配规则
+   * @param  {String}       path   url path
+   */
+  function matchPath(prefix, path) {
+    // 如果缓存存在，则直接返回结果
+    if (PATH_CACHE[path]) {
+      return PATH_CACHE[path];
+    }
+
+    // 如果匹配规则是一个String则直接匹配
+    if (typeof prefix == 'string') {
+      let match = minimatch(path, prefix);
+      if (!match) {
+        return false;
+      }
+
+      PATH_CACHE[path] = formatPath(prefix, path);
+
+      return PATH_CACHE[path];
+    }
+
+    // 如果匹配规则不是String则只能是Array
+    if (!prefix.length || prefix.length < 1) {
+      return false;
+    }
+
+    for (let i = 0; i < prefix.length; i++) {
+      let match = minimatch(path, prefix[i]);
+      if (match) {
+        PATH_CACHE[path] = formatPath(prefix[i], path);
+        return PATH_CACHE[path];
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * 把 []
+   * @param  {[type]} pattern [description]
+   * @param  {[type]} path    [description]
+   * @return {[type]}         [description]
+   */
+  function formatPath(pattern, path) {
+    let prefix = pattern.replace(/(\/\*\*|\/\*)/g, '');
+    return path.replace(prefix, '').replace(/(\/[a-zA-Z-_]+)/, '$1' + prefix);
   }
 };
 

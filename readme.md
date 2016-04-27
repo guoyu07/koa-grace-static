@@ -9,21 +9,25 @@ KOA-grace静态文件server中间件
 ### Usage
 
 ```
-_static(prefix, dir)
+_static(prefix, option)
 ```
 - prefix: {String} url prefix.
-- dir: {String} koa-grace app dir
+- option: {Object} 配置项 dir:文件根目录，maxage:头信息中的maxage
 
 **app.js**
 
 ```
 var koa = require('koa');
-var _static = require('koa-grace-static');
+var _static = require('..');
 
 var app = koa();
 
 // http://127.0.0.1:3000/static/blog/test.js
-app.use(_static('/static', './example'));
+// http://127.0.0.1:3000/static/test.js
+app.use(_static(['/static/**/*','/*/static/**/*'], {
+    dir: './example/', 
+    maxage: 60 * 60 * 1000
+}));
 
 app.listen(3000, function() {
   console.log('Listening on 3000!');
